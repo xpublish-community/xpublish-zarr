@@ -12,7 +12,7 @@ from .utils import TestStore, make_rest
 async def test_get_zmetadata_key(airtemp_ds):
     client = TestClient(make_rest(airtemp_ds).app)
     store = TestStore(client)
-    payload = await store.get('.zmetadata', default_buffer_prototype())
+    payload = await store.get(".zmetadata", default_buffer_prototype())
     actual = json.loads(payload.to_bytes().decode())
     expected = jsonify_zmetadata(airtemp_ds, create_zmetadata(airtemp_ds))
     assert json.dumps(actual, allow_nan=True) == json.dumps(expected, allow_nan=True)
@@ -22,4 +22,4 @@ async def test_missing_key_raises_keyerror(airtemp_ds):
     client = TestClient(make_rest(airtemp_ds).app)
     store = TestStore(client)
     with pytest.raises(KeyError):
-        _ = await store.get('notakey', default_buffer_prototype())
+        _ = await store.get("notakey", default_buffer_prototype())

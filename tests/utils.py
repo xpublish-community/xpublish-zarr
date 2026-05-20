@@ -20,7 +20,7 @@ rs = np.random.RandomState(np.random.MT19937(np.random.SeedSequence(123456789)))
 
 def make_rest(dataset: xr.Dataset) -> SingleDatasetRest:
     """Build a SingleDatasetRest wired up to our local ZarrPlugin only."""
-    return SingleDatasetRest(dataset, plugins={'zarr': ZarrPlugin()})
+    return SingleDatasetRest(dataset, plugins={"zarr": ZarrPlugin()})
 
 
 class TestStore(Store):
@@ -46,10 +46,10 @@ class TestStore(Store):
         byte_range: ByteRequest | None = None,
     ) -> Buffer | None:
         """Retrieve the value associated with a given key."""
-        zarr_key = f'/zarr/{key}'
+        zarr_key = f"/zarr/{key}"
         response = self._client.get(zarr_key)
         if response.status_code != 200:
-            raise KeyError(f'{zarr_key} not found. status_code = {response.status_code}')
+            raise KeyError(f"{zarr_key} not found. status_code = {response.status_code}")
         return prototype.buffer.from_bytes(response.content)
 
     async def get_partial_values(
@@ -88,7 +88,8 @@ class TestStore(Store):
         return False
 
     async def set_partial_values(
-        self, key_start_values: Iterable[tuple[str, int, BytesLike]],
+        self,
+        key_start_values: Iterable[tuple[str, int, BytesLike]],
     ) -> None:
         """Store values at a given key, starting at byte range_start."""
         return NotImplemented
@@ -111,11 +112,11 @@ class TestStore(Store):
 
 
 def create_dataset(
-    start='2018-01',
-    end='2020-12',
-    freq='MS',
-    calendar='standard',
-    units='days since 1980-01-01',
+    start="2018-01",
+    end="2020-12",
+    freq="MS",
+    calendar="standard",
+    units="days since 1980-01-01",
     use_cftime=True,
     decode_times=True,
     nlats=1,
@@ -127,7 +128,11 @@ def create_dataset(
     if use_cftime:
         end = xr.coding.cftime_offsets.to_cftime_datetime(end, calendar=calendar)
         dates = xr.date_range(
-            start=start, end=end, freq=freq, calendar=calendar, use_cftime=use_cftime,
+            start=start,
+            end=end,
+            freq=freq,
+            calendar=calendar,
+            use_cftime=use_cftime,
         )
     else:
         dates = pd.date_range(start=pd.to_datetime(start), end=pd.to_datetime(end), freq=freq)
@@ -135,27 +140,32 @@ def create_dataset(
     decoded_time_bounds = np.vstack((dates[:-1], dates[1:])).T
 
     encoded_time_bounds = xr.coding.times.encode_cf_datetime(
-        decoded_time_bounds, units=units, calendar=calendar,
+        decoded_time_bounds,
+        units=units,
+        calendar=calendar,
     )[0]
 
     encoded_times = xr.DataArray(
         encoded_time_bounds.mean(axis=1),
-        dims=('time'),
-        name='time',
-        attrs={'units': units, 'calendar': calendar},
+        dims=("time"),
+        name="time",
+        attrs={"units": units, "calendar": calendar},
     )
 
     decoded_times = xr.DataArray(
         xr.coding.times.decode_cf_datetime(
-            encoded_times, units=units, calendar=calendar, use_cftime=use_cftime,
+            encoded_times,
+            units=units,
+            calendar=calendar,
+            use_cftime=use_cftime,
         ),
-        dims=['time'],
+        dims=["time"],
     )
     decoded_time_bounds = xr.DataArray(
         decoded_time_bounds,
-        name='time_bounds',
-        dims=('time', 'd2'),
-        coords={'time': decoded_times},
+        name="time_bounds",
+        dims=("time", "d2"),
+        coords={"time": decoded_times},
     )
 
     if decode_times:
@@ -165,13 +175,13 @@ def create_dataset(
         times = encoded_times
         time_bounds = xr.DataArray(
             encoded_time_bounds,
-            name='time_bounds',
-            dims=('time', 'd2'),
-            coords={'time': times},
+            name="time_bounds",
+            dims=("time", "d2"),
+            coords={"time": times},
         )
 
-    lats = np.linspace(start=-90, stop=90, num=nlats, dtype='float32')
-    lons = np.linspace(start=-180, stop=180, num=nlons, dtype='float32')
+    lats = np.linspace(start=-90, stop=90, num=nlats, dtype="float32")
+    lons = np.linspace(start=-180, stop=180, num=nlons, dtype="float32")
 
     if use_xy_dim:
         lats, lons = np.meshgrid(lats, lons)
@@ -197,29 +207,29 @@ def create_dataset(
 
     ds = xr.Dataset(
         {
-            'tmin': xr.DataArray(
-                tmin_values.astype('float32'),
-                dims=('time', 'lat', 'lon') if not use_xy_dim else ('time', 'y', 'x'),
-                name='tmin',
+            "tmin": xr.DataArray(
+                tmin_values.astype("float32"),
+                dims=("time", "lat", "lon") if not use_xy_dim else ("time", "y", "x"),
+                name="tmin",
             ),
-            'tmax': xr.DataArray(
-                tmax_values.astype('float32'),
-                dims=('time', 'lat', 'lon') if not use_xy_dim else ('time', 'y', 'x'),
-                name='tmax',
+            "tmax": xr.DataArray(
+                tmax_values.astype("float32"),
+                dims=("time", "lat", "lon") if not use_xy_dim else ("time", "y", "x"),
+                name="tmax",
             ),
-            'time_bounds': time_bounds,
+            "time_bounds": time_bounds,
         },
         coords={
-            'time': times,
-            'lat': ('lat' if not use_xy_dim else ['y', 'x'], lats),
-            'lon': ('lon' if not use_xy_dim else ['y', 'x'], lons),
+            "time": times,
+            "lat": ("lat" if not use_xy_dim else ["y", "x"], lats),
+            "lon": ("lon" if not use_xy_dim else ["y", "x"], lons),
         },
     )
 
-    ds.tmin.encoding['_FillValue'] = np.float32(-9999999)
-    ds.tmax.encoding['_FillValue'] = np.float32(-9999999)
-    ds.time.attrs['bounds'] = 'time_bounds'
-    ds.time.encoding['units'] = units
-    ds.time.encoding['calendar'] = calendar
+    ds.tmin.encoding["_FillValue"] = np.float32(-9999999)
+    ds.tmax.encoding["_FillValue"] = np.float32(-9999999)
+    ds.time.attrs["bounds"] = "time_bounds"
+    ds.time.encoding["units"] = units
+    ds.time.encoding["calendar"] = calendar
 
     return ds

@@ -23,16 +23,16 @@ from xpublish_zarr.utils import (
     jsonify_zmetadata,
 )
 
-logger = logging.getLogger('xpublish_zarr')
+logger = logging.getLogger("xpublish_zarr")
 
 
 class ZarrPlugin(Plugin):
     """Adds Zarr-compatible accessing endpoints for datasets."""
 
-    name: str = 'zarr'
+    name: str = "zarr"
 
-    dataset_router_prefix: str = '/zarr'
-    dataset_router_tags: Sequence[str] = ['zarr']
+    dataset_router_prefix: str = "/zarr"
+    dataset_router_tags: Sequence[str] = ["zarr"]
 
     @hookimpl
     def dataset_router(self, deps: Dependencies) -> APIRouter:
@@ -42,7 +42,7 @@ class ZarrPlugin(Plugin):
             tags=list(self.dataset_router_tags),
         )
 
-        @router.get(f'/{ZARR_METADATA_KEY}')
+        @router.get(f"/{ZARR_METADATA_KEY}")
         def get_zarr_metadata(
             dataset=Depends(deps.dataset),
             cache=Depends(deps.cache),
@@ -52,7 +52,7 @@ class ZarrPlugin(Plugin):
             zmetadata = get_zmetadata(dataset, cache, zvariables)
             return JSONResponse(jsonify_zmetadata(dataset, zmetadata))
 
-        @router.get(f'/{group_meta_key}')
+        @router.get(f"/{group_meta_key}")
         def get_zarr_group(
             dataset=Depends(deps.dataset),
             cache=Depends(deps.cache),
@@ -60,9 +60,9 @@ class ZarrPlugin(Plugin):
             """Zarr group data."""
             zvariables = get_zvariables(dataset, cache)
             zmetadata = get_zmetadata(dataset, cache, zvariables)
-            return JSONResponse(zmetadata['metadata'][group_meta_key])
+            return JSONResponse(zmetadata["metadata"][group_meta_key])
 
-        @router.get(f'/{attrs_key}')
+        @router.get(f"/{attrs_key}")
         def get_zarr_attrs(
             dataset=Depends(deps.dataset),
             cache=Depends(deps.cache),
@@ -70,12 +70,12 @@ class ZarrPlugin(Plugin):
             """Zarr attributes."""
             zvariables = get_zvariables(dataset, cache)
             zmetadata = get_zmetadata(dataset, cache, zvariables)
-            return JSONResponse(zmetadata['metadata'][attrs_key])
+            return JSONResponse(zmetadata["metadata"][attrs_key])
 
-        @router.get('/{var}/{chunk}')
+        @router.get("/{var}/{chunk}")
         def get_variable_chunk(
-            var: str = Path(description='Variable in dataset'),
-            chunk: str = Path(description='Zarr chunk'),
+            var: str = Path(description="Variable in dataset"),
+            chunk: str = Path(description="Zarr chunk"),
             dataset: xr.Dataset = Depends(deps.dataset),
             cache: cachey.Cache = Depends(deps.cache),
         ):
@@ -88,38 +88,38 @@ class ZarrPlugin(Plugin):
 
             # First check whether this request was for variable metadata
             if array_meta_key in chunk:
-                return zmetadata['metadata'][f'{var}/{array_meta_key}']
+                return zmetadata["metadata"][f"{var}/{array_meta_key}"]
             if attrs_key in chunk:
-                return JSONResponse(zmetadata['metadata'][f'{var}/{attrs_key}'])
+                return JSONResponse(zmetadata["metadata"][f"{var}/{attrs_key}"])
             if group_meta_key in chunk:
-                raise HTTPException(status_code=404, detail='No subgroups')
+                raise HTTPException(status_code=404, detail="No subgroups")
 
-            logger.debug('var is %s', var)
-            logger.debug('chunk is %s', chunk)
+            logger.debug("var is %s", var)
+            logger.debug("chunk is %s", chunk)
 
-            cache_key = dataset.attrs.get(DATASET_ID_ATTR_KEY, '') + '/' + f'{var}/{chunk}'
+            cache_key = dataset.attrs.get(DATASET_ID_ATTR_KEY, "") + "/" + f"{var}/{chunk}"
             response = cache.get(cache_key)
 
             if response is None:
                 with CostTimer() as ct:
-                    arr_meta = zmetadata['metadata'][f'{var}/{array_meta_key}']
+                    arr_meta = zmetadata["metadata"][f"{var}/{array_meta_key}"]
                     da = zvariables[var].data
 
                     data_chunk = get_data_chunk(
                         da,
                         chunk,
-                        out_shape=arr_meta['chunks'],
+                        out_shape=arr_meta["chunks"],
                     )
 
                     echunk = encode_chunk(
                         data_chunk.tobytes(),
-                        filters=arr_meta['filters'],
-                        compressor=arr_meta['compressor'],
+                        filters=arr_meta["filters"],
+                        compressor=arr_meta["compressor"],
                     )
 
                     response = Response(
                         echunk,
-                        media_type='application/octet-stream',
+                        media_type="application/octet-stream",
                     )
 
                 cache.put(cache_key, response, ct.time, len(echunk))

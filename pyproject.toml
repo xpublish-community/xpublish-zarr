@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "hatchling.build"
-requires = [ "hatchling", "hatch-vcs" ]
+requires = [ "hatch-vcs", "hatchling" ]
 
 [project]
 name = "xpublish-zarr"
@@ -28,7 +28,6 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
 ]
 dynamic = [ "version" ]
@@ -49,7 +48,7 @@ entry-points."xpublish.plugin".zarr = "xpublish_zarr.plugin:ZarrPlugin"
 dev = [
   "httpx",
   "netcdf4>=1.7.4",
-  "pooch>=1.9.0",
+  "pooch>=1.9",
   "pre-commit",
   "pytest",
   "pytest-asyncio",
@@ -64,9 +63,6 @@ version-file = "xpublish_zarr/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = [ "xpublish_zarr" ]
-
-[tool.uv]
-default-groups = [ "dev" ]
 
 [tool.ruff]
 line-length = 100
@@ -102,8 +98,6 @@ lint.flake8-bugbear.extend-immutable-calls = [
   "fastapi.Path",
   "fastapi.Query",
 ]
-lint.flake8-quotes.docstring-quotes = "double"
-lint.flake8-quotes.inline-quotes = "single"
 lint.isort.combine-as-imports = true
 lint.isort.known-first-party = [ "xpublish_zarr" ]
 lint.mccabe.max-complexity = 18
@@ -115,3 +109,6 @@ asyncio_default_fixture_loop_scope = "function"
 log_cli = true
 log_level = "INFO"
 addopts = "-v"
+
+[tool.uv]
+default-groups = [ "dev" ]
