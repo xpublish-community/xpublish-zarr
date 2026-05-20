@@ -1,2 +1,1 @@
-# arraylake-apps
 # xpublish-zarr
