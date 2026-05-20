@@ -1,0 +1,117 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [ "hatchling", "hatch-vcs" ]
+
+[project]
+name = "xpublish-zarr"
+description = "Zarr-compatible REST API plugin for Xpublish."
+readme = "README.md"
+keywords = [
+  "api",
+  "xarray",
+  "xpublish",
+  "zarr",
+]
+license = "Apache-2.0"
+license-files = [ "LICENSE" ]
+maintainers = [
+  { name = "Joe Hamman", email = "jhamman@ucar.edu" },
+  { name = "Alex Kerney", email = "akerney@gmri.org" },
+]
+requires-python = ">=3.11"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering",
+]
+dynamic = [ "version" ]
+dependencies = [
+  "cachey",
+  "dask",
+  "fastapi>=0.115",
+  "numcodecs",
+  "numpy",
+  "xarray>=2025.7",
+  "xpublish",
+  "zarr>=3.0.7",
+]
+urls.Repository = "https://github.com/xpublish-community/xpublish-zarr"
+entry-points."xpublish.plugin".zarr = "xpublish_zarr.plugin:ZarrPlugin"
+
+[dependency-groups]
+dev = [
+  "httpx",
+  "netcdf4>=1.7.4",
+  "pooch>=1.9.0",
+  "pre-commit",
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "xpublish_zarr/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = [ "xpublish_zarr" ]
+
+[tool.uv]
+default-groups = [ "dev" ]
+
+[tool.ruff]
+line-length = 100
+
+lint.select = [
+  "B",
+  "B9",
+  "C",
+  "D",
+  "E",
+  "F",
+  "I",
+  "W",
+]
+lint.ignore = [
+  "C901",
+  "D100",
+  "D104",
+  "D105",
+  "D107",
+  "E402",
+  "E501",
+  "E722",
+]
+lint.exclude = [ "tests/" ]
+lint.per-file-ignores."tests/*" = [
+  "D103",
+  "D205",
+  "D415",
+]
+lint.flake8-bugbear.extend-immutable-calls = [
+  "fastapi.Depends",
+  "fastapi.Path",
+  "fastapi.Query",
+]
+lint.flake8-quotes.docstring-quotes = "double"
+lint.flake8-quotes.inline-quotes = "single"
+lint.isort.combine-as-imports = true
+lint.isort.known-first-party = [ "xpublish_zarr" ]
+lint.mccabe.max-complexity = 18
+lint.pydocstyle.convention = "google"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+log_cli = true
+log_level = "INFO"
+addopts = "-v"
