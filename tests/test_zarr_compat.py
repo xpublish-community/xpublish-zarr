@@ -20,7 +20,14 @@ from .utils import TestStore, create_dataset, make_rest
     ],
 )
 async def test_zarr_json_identical(
-    start, end, freq, nlats, nlons, var_const, calendar, use_cftime,
+    start,
+    end,
+    freq,
+    nlats,
+    nlons,
+    var_const,
+    calendar,
+    use_cftime,
 ):
     ds = create_dataset(
         start=start,
