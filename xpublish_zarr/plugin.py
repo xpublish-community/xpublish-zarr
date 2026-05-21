@@ -1,4 +1,4 @@
-"""Zarr REST API plugin for Xpublish."""
+"""Zarr v3 REST API plugin for Xpublish."""
 
 import logging
 from typing import Sequence
@@ -8,26 +8,23 @@ import xarray as xr
 from fastapi import APIRouter, Depends, HTTPException, Path
 from starlette.responses import Response
 from xpublish.plugins import Dependencies, Plugin, hookimpl
-from xpublish.utils.api import DATASET_ID_ATTR_KEY, JSONResponse
+from xpublish.utils.api import DATASET_ID_ATTR_KEY
 from xpublish.utils.cache import CostTimer
 
 from xpublish_zarr.utils import (
-    ZARR_METADATA_KEY,
-    array_meta_key,
-    attrs_key,
+    ARRAY_METADATA_SUFFIX,
+    ROOT_METADATA_KEY,
+    chunk_storage_key,
     encode_chunk,
-    get_data_chunk,
-    get_zmetadata,
-    get_zvariables,
-    group_meta_key,
-    jsonify_zmetadata,
+    get_bytes,
+    get_store,
 )
 
 logger = logging.getLogger("xpublish_zarr")
 
 
 class ZarrPlugin(Plugin):
-    """Adds Zarr-compatible accessing endpoints for datasets."""
+    """Adds Zarr v3-compatible accessing endpoints for datasets."""
 
     name: str = "zarr"
 
@@ -36,94 +33,103 @@ class ZarrPlugin(Plugin):
 
     @hookimpl
     def dataset_router(self, deps: Dependencies) -> APIRouter:
-        """Build the dataset-scoped router exposing zarr endpoints."""
+        """Build the dataset-scoped router exposing zarr v3 endpoints."""
         router = APIRouter(
             prefix=self.dataset_router_prefix,
             tags=list(self.dataset_router_tags),
         )
 
-        @router.get(f"/{ZARR_METADATA_KEY}")
-        def get_zarr_metadata(
-            dataset=Depends(deps.dataset),
-            cache=Depends(deps.cache),
-        ) -> dict:
-            """Consolidated Zarr metadata."""
-            zvariables = get_zvariables(dataset, cache)
-            zmetadata = get_zmetadata(dataset, cache, zvariables)
-            return JSONResponse(jsonify_zmetadata(dataset, zmetadata))
-
-        @router.get(f"/{group_meta_key}")
-        def get_zarr_group(
-            dataset=Depends(deps.dataset),
-            cache=Depends(deps.cache),
-        ) -> dict:
-            """Zarr group data."""
-            zvariables = get_zvariables(dataset, cache)
-            zmetadata = get_zmetadata(dataset, cache, zvariables)
-            return JSONResponse(zmetadata["metadata"][group_meta_key])
-
-        @router.get(f"/{attrs_key}")
-        def get_zarr_attrs(
-            dataset=Depends(deps.dataset),
-            cache=Depends(deps.cache),
-        ) -> dict:
-            """Zarr attributes."""
-            zvariables = get_zvariables(dataset, cache)
-            zmetadata = get_zmetadata(dataset, cache, zvariables)
-            return JSONResponse(zmetadata["metadata"][attrs_key])
-
-        @router.get("/{var}/{chunk}")
-        def get_variable_chunk(
-            var: str = Path(description="Variable in dataset"),
-            chunk: str = Path(description="Zarr chunk"),
+        @router.get("/" + ROOT_METADATA_KEY)
+        def get_root_metadata(
             dataset: xr.Dataset = Depends(deps.dataset),
             cache: cachey.Cache = Depends(deps.cache),
         ):
-            """Get a zarr array chunk.
+            """Root group zarr.json (includes consolidated metadata)."""
+            store = get_store(dataset, cache)
+            payload = get_bytes(store, ROOT_METADATA_KEY)
+            if payload is None:
+                raise HTTPException(status_code=404, detail=ROOT_METADATA_KEY)
+            return Response(payload, media_type="application/json")
 
-            Returns cached responses when available.
-            """
-            zvariables = get_zvariables(dataset, cache)
-            zmetadata = get_zmetadata(dataset, cache, zvariables)
+        @router.get("/{var}" + ARRAY_METADATA_SUFFIX)
+        def get_array_metadata(
+            var: str = Path(description="Variable in dataset"),
+            dataset: xr.Dataset = Depends(deps.dataset),
+            cache: cachey.Cache = Depends(deps.cache),
+        ):
+            """Per-array zarr.json."""
+            store = get_store(dataset, cache)
+            payload = get_bytes(store, f"{var}{ARRAY_METADATA_SUFFIX}")
+            if payload is None:
+                raise HTTPException(status_code=404, detail=f"{var}{ARRAY_METADATA_SUFFIX}")
+            return Response(payload, media_type="application/json")
 
-            # First check whether this request was for variable metadata
-            if array_meta_key in chunk:
-                return zmetadata["metadata"][f"{var}/{array_meta_key}"]
-            if attrs_key in chunk:
-                return JSONResponse(zmetadata["metadata"][f"{var}/{attrs_key}"])
-            if group_meta_key in chunk:
-                raise HTTPException(status_code=404, detail="No subgroups")
+        @router.get("/{var}/c/{chunk:path}")
+        def get_chunk(
+            var: str = Path(description="Variable in dataset"),
+            chunk: str = Path(description="Chunk coordinates separated by '/'"),
+            dataset: xr.Dataset = Depends(deps.dataset),
+            cache: cachey.Cache = Depends(deps.cache),
+        ):
+            """Get an encoded zarr v3 chunk."""
+            store = get_store(dataset, cache)
+            chunk_coords = _parse_chunk_path(chunk)
+            store_key = chunk_storage_key(var, chunk_coords)
 
-            logger.debug("var is %s", var)
-            logger.debug("chunk is %s", chunk)
-
-            cache_key = dataset.attrs.get(DATASET_ID_ATTR_KEY, "") + "/" + f"{var}/{chunk}"
+            cache_key = dataset.attrs.get(DATASET_ID_ATTR_KEY, "") + "/v3-chunk/" + store_key
             response = cache.get(cache_key)
+            if response is not None:
+                return response
 
-            if response is None:
-                with CostTimer() as ct:
-                    arr_meta = zmetadata["metadata"][f"{var}/{array_meta_key}"]
-                    da = zvariables[var].data
+            with CostTimer() as ct:
+                # Coords and non-dask data variables are pre-materialized in
+                # the store by to_zarr(compute=False); serve those directly.
+                payload = get_bytes(store, store_key)
+                if payload is None:
+                    if var not in dataset.variables:
+                        raise HTTPException(status_code=404, detail=var)
+                    try:
+                        payload = encode_chunk(dataset, store, var, chunk_coords)
+                    except IndexError as e:
+                        raise HTTPException(status_code=404, detail=str(e)) from e
+                response = Response(payload, media_type="application/octet-stream")
 
-                    data_chunk = get_data_chunk(
-                        da,
-                        chunk,
-                        out_shape=arr_meta["chunks"],
-                    )
+            cache.put(cache_key, response, ct.time, len(payload))
+            return response
 
-                    echunk = encode_chunk(
-                        data_chunk.tobytes(),
-                        filters=arr_meta["filters"],
-                        compressor=arr_meta["compressor"],
-                    )
+        @router.get("/{var}/c")
+        def get_scalar_chunk(
+            var: str = Path(description="Scalar variable in dataset"),
+            dataset: xr.Dataset = Depends(deps.dataset),
+            cache: cachey.Cache = Depends(deps.cache),
+        ):
+            """Get the single chunk of a scalar (0-d) variable."""
+            store = get_store(dataset, cache)
+            store_key = chunk_storage_key(var, ())
+            cache_key = dataset.attrs.get(DATASET_ID_ATTR_KEY, "") + "/v3-chunk/" + store_key
+            response = cache.get(cache_key)
+            if response is not None:
+                return response
 
-                    response = Response(
-                        echunk,
-                        media_type="application/octet-stream",
-                    )
+            with CostTimer() as ct:
+                payload = get_bytes(store, store_key)
+                if payload is None:
+                    if var not in dataset.variables:
+                        raise HTTPException(status_code=404, detail=var)
+                    payload = encode_chunk(dataset, store, var, ())
+                response = Response(payload, media_type="application/octet-stream")
 
-                cache.put(cache_key, response, ct.time, len(echunk))
-
+            cache.put(cache_key, response, ct.time, len(payload))
             return response
 
         return router
+
+
+def _parse_chunk_path(chunk: str) -> tuple[int, ...]:
+    """Parse the trailing chunk-coordinate path into integer coords."""
+    if not chunk:
+        return ()
+    try:
+        return tuple(int(part) for part in chunk.split("/"))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=f"invalid chunk path: {chunk}") from e

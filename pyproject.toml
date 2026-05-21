@@ -39,7 +39,7 @@ dependencies = [
   "numpy",
   "xarray>=2025.7",
   "xpublish",
-  "zarr>=3.0.7",
+  "zarr>=3.1",
 ]
 urls.Repository = "https://github.com/xpublish-community/xpublish-zarr"
 entry-points."xpublish.plugin".zarr = "xpublish_zarr.plugin:ZarrPlugin"

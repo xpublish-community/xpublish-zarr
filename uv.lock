@@ -1310,14 +1310,14 @@ requires-dist = [
     { name = "numpy" },
     { name = "xarray", specifier = ">=2025.7" },
     { name = "xpublish" },
-    { name = "zarr", specifier = ">=3.0.7" },
+    { name = "zarr", specifier = ">=3.1" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "httpx" },
     { name = "netcdf4", specifier = ">=1.7.4" },
-    { name = "pooch", specifier = ">=1.9.0" },
+    { name = "pooch", specifier = ">=1.9" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
