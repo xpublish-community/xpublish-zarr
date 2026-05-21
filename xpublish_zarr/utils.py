@@ -94,19 +94,19 @@ async def _encode_chunk_async(
 
     if len(chunk_coords) != len(chunk_shape):
         raise IndexError(
-            f"chunk {chunk_coords} has wrong rank for {var} "
-            f"(expected {len(chunk_shape)} indices)",
+            f"chunk {chunk_coords} has wrong rank for {var} (expected {len(chunk_shape)} indices)",
         )
 
     slices = tuple(
-        slice(c * cs, min((c + 1) * cs, s))
-        for c, cs, s in zip(chunk_coords, chunk_shape, shape)
+        slice(c * cs, min((c + 1) * cs, s)) for c, cs, s in zip(chunk_coords, chunk_shape, shape)
     )
     if chunk_shape and any(sl.start >= sl.stop for sl in slices):
         raise IndexError(f"chunk {chunk_coords} out of range for {var} shape={shape}")
 
     if chunk_shape:
-        chunk_data = np.asarray(var_data.isel({d: sl for d, sl in zip(var_data.dims, slices)}).values)
+        chunk_data = np.asarray(
+            var_data.isel({d: sl for d, sl in zip(var_data.dims, slices)}).values
+        )
         await aarr.setitem(slices, chunk_data)
     else:
         await aarr.setitem(..., np.asarray(var_data.values))

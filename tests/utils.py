@@ -9,8 +9,8 @@ import pandas as pd
 import xarray as xr
 from starlette.testclient import TestClient
 from xpublish import SingleDatasetRest
-from zarr.abc.store import ByteRequest, Store
 from zarr.abc.buffer import Buffer, BufferPrototype
+from zarr.abc.store import ByteRequest, Store
 from zarr.core.common import BytesLike
 
 from xpublish_zarr import ZarrPlugin

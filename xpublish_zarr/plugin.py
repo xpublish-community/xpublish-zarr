@@ -76,9 +76,7 @@ class ZarrPlugin(Plugin):
             chunk_coords = _parse_chunk_path(chunk)
             store_key = chunk_storage_key(var, chunk_coords)
 
-            cache_key = (
-                dataset.attrs.get(DATASET_ID_ATTR_KEY, "") + "/v3-chunk/" + store_key
-            )
+            cache_key = dataset.attrs.get(DATASET_ID_ATTR_KEY, "") + "/v3-chunk/" + store_key
             response = cache.get(cache_key)
             if response is not None:
                 return response
@@ -108,9 +106,7 @@ class ZarrPlugin(Plugin):
             """Get the single chunk of a scalar (0-d) variable."""
             store = get_store(dataset, cache)
             store_key = chunk_storage_key(var, ())
-            cache_key = (
-                dataset.attrs.get(DATASET_ID_ATTR_KEY, "") + "/v3-chunk/" + store_key
-            )
+            cache_key = dataset.attrs.get(DATASET_ID_ATTR_KEY, "") + "/v3-chunk/" + store_key
             response = cache.get(cache_key)
             if response is not None:
                 return response
