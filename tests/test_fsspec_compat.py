@@ -2,20 +2,24 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
-from zarr.core.buffer import default_buffer_prototype
-
-from xpublish_zarr.utils import create_zmetadata, jsonify_zmetadata
+from zarr.buffer import default_buffer_prototype
+from zarr.storage import MemoryStore
 
 from .utils import TestStore, make_rest
 
 
-async def test_get_zmetadata_key(airtemp_ds):
+async def test_get_root_zarr_json(airtemp_ds):
     client = TestClient(make_rest(airtemp_ds).app)
     store = TestStore(client)
-    payload = await store.get(".zmetadata", default_buffer_prototype())
+    payload = await store.get("zarr.json", default_buffer_prototype())
     actual = json.loads(payload.to_bytes().decode())
-    expected = jsonify_zmetadata(airtemp_ds, create_zmetadata(airtemp_ds))
-    assert json.dumps(actual, allow_nan=True) == json.dumps(expected, allow_nan=True)
+
+    expected_store = MemoryStore()
+    airtemp_ds.to_zarr(expected_store, zarr_format=3, consolidated=True, compute=False)
+    expected_buf = await expected_store.get("zarr.json", default_buffer_prototype())
+    expected = json.loads(expected_buf.to_bytes().decode())
+
+    assert actual == expected
 
 
 async def test_missing_key_raises_keyerror(airtemp_ds):

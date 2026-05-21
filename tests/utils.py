@@ -10,17 +10,25 @@ import xarray as xr
 from starlette.testclient import TestClient
 from xpublish import SingleDatasetRest
 from zarr.abc.store import ByteRequest, Store
-from zarr.core.buffer import Buffer, BufferPrototype
+from zarr.abc.buffer import Buffer, BufferPrototype
 from zarr.core.common import BytesLike
 
 from xpublish_zarr import ZarrPlugin
+from xpublish_zarr.utils import get_store
 
 rs = np.random.RandomState(np.random.MT19937(np.random.SeedSequence(123456789)))
 
 
 def make_rest(dataset: xr.Dataset) -> SingleDatasetRest:
-    """Build a SingleDatasetRest wired up to our local ZarrPlugin only."""
-    return SingleDatasetRest(dataset, plugins={"zarr": ZarrPlugin()})
+    """Build a SingleDatasetRest wired up to our local ZarrPlugin only.
+
+    Eagerly builds the v3 metadata store so the first HTTP request doesn't
+    call ds.to_zarr() while xr.open_zarr (used in roundtrip tests) is
+    holding zarr's global sync event loop — that combination deadlocks.
+    """
+    rest = SingleDatasetRest(dataset, plugins={"zarr": ZarrPlugin()})
+    get_store(dataset, rest.cache)
+    return rest
 
 
 class TestStore(Store):
