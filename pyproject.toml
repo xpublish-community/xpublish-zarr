@@ -28,6 +28,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
 ]
 dynamic = [ "version" ]
@@ -55,18 +56,16 @@ dev = [
   "pytest-cov",
 ]
 
-[tool.hatch.version]
-source = "vcs"
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "xpublish_zarr/_version.py"
+build.targets.wheel.packages = [ "xpublish_zarr" ]
 
-[tool.hatch.build.hooks.vcs]
-version-file = "xpublish_zarr/_version.py"
-
-[tool.hatch.build.targets.wheel]
-packages = [ "xpublish_zarr" ]
+[tool.uv]
+default-groups = [ "dev" ]
 
 [tool.ruff]
 line-length = 100
-
 lint.select = [
   "B",
   "B9",
@@ -103,12 +102,9 @@ lint.isort.known-first-party = [ "xpublish_zarr" ]
 lint.mccabe.max-complexity = 18
 lint.pydocstyle.convention = "google"
 
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-log_cli = true
-log_level = "INFO"
-addopts = "-v"
-
-[tool.uv]
-default-groups = [ "dev" ]
+[tool.pytest]
+ini_options.addopts = "-v"
+ini_options.log_level = "INFO"
+ini_options.log_cli = true
+ini_options.asyncio_default_fixture_loop_scope = "function"
+ini_options.asyncio_mode = "auto"
